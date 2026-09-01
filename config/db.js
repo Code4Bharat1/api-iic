@@ -1,7 +1,10 @@
 const mongoose = require('mongoose');
 
 async function connectDB() {
-  const uri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/iic';
+  const uri = process.env.MONGO_URI;
+  if (!uri) {
+    throw new Error('MONGO_URI is not set in the environment (.env)');
+  }
   await mongoose.connect(uri);
   console.log(`[db] connected: ${uri}`);
 }

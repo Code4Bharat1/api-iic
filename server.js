@@ -20,7 +20,11 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT;
+if (!PORT) {
+  console.error('[server] PORT is not set in the environment (.env)');
+  process.exit(1);
+}
 
 connectDB()
   .then(() => app.listen(PORT, () => console.log(`[server] listening on :${PORT}`)))
