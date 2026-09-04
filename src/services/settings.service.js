@@ -1,5 +1,5 @@
 const Setting = require('../models/Setting');
-const { logAction } = require('../utils/audit');
+const { logAction } = require('../services/audit.service');
 
 async function getSettings() {
   let settings = await Setting.findOne({ key: 'global' });
@@ -7,20 +7,18 @@ async function getSettings() {
   return settings;
 }
 
-async function get(req, res) {
-  res.json(await getSettings());
-}
-
-async function update(req, res) {
+async function updateSettings(body, user) {
   const settings = await getSettings();
   const before = settings.toObject();
+  
   ['bookingWindowMonths', 'orgName', 'notifyOnApproval', 'notifyOnClosure'].forEach((field) => {
-    if (req.body[field] !== undefined) settings[field] = req.body[field];
+    if (body[field] !== undefined) settings[field] = body[field];
   });
+  
   await settings.save();
 
   await logAction({
-    user: req.user,
+    user,
     action: 'Updated Settings',
     entity: 'Setting',
     entityId: settings._id,
@@ -29,7 +27,7 @@ async function update(req, res) {
     newValue: settings.toObject(),
   });
 
-  res.json(settings);
+  return settings;
 }
 
-module.exports = { get, update, getSettings };
+module.exports = { getSettings, updateSettings };

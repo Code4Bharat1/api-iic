@@ -4,7 +4,7 @@
  * Creates or updates the initial Master Admin user.
  * Does NOT wipe existing data — safe to run on a live database.
  *
- * Required env vars (in api-iic/.env):
+ * Required env vars (in server/.env):
  *   MASTER_ADMIN_USER_ID   e.g. MST-0001
  *   MASTER_ADMIN_NAME      e.g. System Administrator
  *   MASTER_ADMIN_EMAIL     e.g. admin@yourdomain.com

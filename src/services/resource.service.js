@@ -1,7 +1,7 @@
 const Resource = require('../models/Resource');
 const Booking = require('../models/Booking');
 const { getResourceAvailability } = require('../utils/availability');
-const { logAction } = require('../utils/audit');
+const { logAction } = require('../services/audit.service');
 const { RESERVING_STATUSES } = require('../utils/constants');
 
 function todayStr() {
@@ -9,10 +9,6 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// Annotates each resource with its Reserved/Available quantity for *today* — the
-// "at a glance" figures the Resource Management table (spec §18) is meant to show.
-// (Reserved/Available are inherently period-bound; "today" is the reference period
-// here, and the exact-window figures are available on the resource detail page.)
 async function withTodayAvailability(resources) {
   const date = todayStr();
   const bookings = await Booking.find({ date, status: { $in: RESERVING_STATUSES } })
@@ -28,8 +24,8 @@ async function withTodayAvailability(resources) {
   });
 }
 
-async function list(req, res) {
-  const { search, category, floor, status } = req.query;
+async function listResources(queryOptions) {
+  const { search, category, floor, status } = queryOptions;
   const query = {};
   if (category) query.category = category;
   if (floor) query.floor = floor;
@@ -38,26 +34,24 @@ async function list(req, res) {
   if (search) query.name = new RegExp(search, 'i');
 
   const resources = await Resource.find(query).sort({ floor: 1, category: 1, name: 1 }).lean();
-  res.json(await withTodayAvailability(resources));
+  return await withTodayAvailability(resources);
 }
 
-// Full catalog for a floor with live availability for a given date/time window —
-// what the New Booking wizard's Resources step and the Availability page render.
-async function catalog(req, res) {
-  const { floor, date, start, end } = req.query;
+async function getCatalog(queryOptions) {
+  const { floor, date, start, end } = queryOptions;
   if (!floor || !date || !start || !end) {
-    return res.status(400).json({ error: 'floor, date, start and end are required.' });
+    throw Object.assign(new Error('floor, date, start and end are required.'), { status: 400 });
   }
   const resources = await Resource.find({ floor, active: true }).lean();
   const results = await Promise.all(
     resources.map((resource) => getResourceAvailability({ resource, date, startTime: start, endTime: end }))
   );
-  res.json(results);
+  return results;
 }
 
-async function getById(req, res) {
-  const resource = await Resource.findById(req.params.id).lean();
-  if (!resource) return res.status(404).json({ error: 'Resource not found.' });
+async function getResourceById(id) {
+  const resource = await Resource.findById(id).lean();
+  if (!resource) throw Object.assign(new Error('Resource not found.'), { status: 404 });
 
   const allocations = await Booking.find({ 'resources.resource': resource._id })
     .sort({ date: -1 })
@@ -74,25 +68,31 @@ async function getById(req, res) {
     quantity: b.resources.find((r) => String(r.resource) === String(resource._id))?.quantity || 0,
   }));
 
-  res.json({ ...resource, allocations: allocationList });
+  return { ...resource, allocations: allocationList };
 }
 
-async function create(req, res) {
-  const { name, category, floor, unitType, totalQuantity, notes } = req.body;
-  if (!name || !category || !floor) return res.status(400).json({ error: 'name, category and floor are required.' });
+async function createResource(body, user) {
+  const { name, category, floor, unitType, totalQuantity, notes } = body;
+  if (!name || !category || !floor) throw Object.assign(new Error('name, category and floor are required.'), { status: 400 });
+
+  // Phase 5 validation logic for quantities
+  const parsedQuantity = totalQuantity !== undefined ? Number(totalQuantity) : 1;
+  if (isNaN(parsedQuantity) || parsedQuantity < 0) {
+    throw Object.assign(new Error('Quantity must be a positive number.'), { status: 400 });
+  }
 
   const resource = await Resource.create({
     name,
     category,
     floor,
     unitType: unitType || 'quantity',
-    totalQuantity: totalQuantity ?? 1,
+    totalQuantity: parsedQuantity,
     notes: notes || '',
-    history: [{ action: 'Created', newQuantity: totalQuantity ?? 1, changedBy: req.user.name, reason: 'Initial setup' }],
+    history: [{ action: 'Created', newQuantity: parsedQuantity, changedBy: user.name, reason: 'Initial setup' }],
   });
 
   await logAction({
-    user: req.user,
+    user,
     action: 'Created Resource',
     entity: 'Resource',
     entityId: resource._id,
@@ -100,30 +100,37 @@ async function create(req, res) {
     newValue: resource.toObject(),
   });
 
-  res.status(201).json(resource);
+  return resource;
 }
 
-async function update(req, res) {
-  const resource = await Resource.findById(req.params.id);
-  if (!resource) return res.status(404).json({ error: 'Resource not found.' });
+async function updateResource(id, body, user) {
+  const resource = await Resource.findById(id);
+  if (!resource) throw Object.assign(new Error('Resource not found.'), { status: 404 });
 
   const before = resource.toObject();
-  const { name, category, floor, totalQuantity, notes, reason } = req.body;
+  const { name, category, floor, totalQuantity, notes, reason } = body;
 
-  if (totalQuantity !== undefined && totalQuantity !== resource.totalQuantity) {
-    resource.history.push({
-      action: 'Quantity Updated',
-      oldQuantity: resource.totalQuantity,
-      newQuantity: totalQuantity,
-      changedBy: req.user.name,
-      reason: reason || '',
-    });
-    resource.totalQuantity = totalQuantity;
+  if (totalQuantity !== undefined) {
+    const parsedQuantity = Number(totalQuantity);
+    if (isNaN(parsedQuantity) || parsedQuantity < 0) {
+      throw Object.assign(new Error('Quantity must be a positive number.'), { status: 400 });
+    }
+    if (parsedQuantity !== resource.totalQuantity) {
+      resource.history.push({
+        action: 'Quantity Updated',
+        oldQuantity: resource.totalQuantity,
+        newQuantity: parsedQuantity,
+        changedBy: user.name,
+        reason: reason || '',
+      });
+      resource.totalQuantity = parsedQuantity;
+    }
   }
+
   if (floor !== undefined && floor !== resource.floor) {
     resource.history.push({
       action: 'Floor Reassigned',
-      changedBy: req.user.name,
+      changedBy: user.name,
       reason: reason || `${resource.floor} → ${floor}`,
     });
     resource.floor = floor;
@@ -135,7 +142,7 @@ async function update(req, res) {
   await resource.save();
 
   await logAction({
-    user: req.user,
+    user,
     action: 'Updated Resource',
     entity: 'Resource',
     entityId: resource._id,
@@ -145,30 +152,30 @@ async function update(req, res) {
     reason: reason || '',
   });
 
-  res.json(resource);
+  return resource;
 }
 
-async function setActive(req, res) {
-  const resource = await Resource.findById(req.params.id);
-  if (!resource) return res.status(404).json({ error: 'Resource not found.' });
-  resource.active = !!req.body.active;
+async function setResourceActive(id, body, user) {
+  const resource = await Resource.findById(id);
+  if (!resource) throw Object.assign(new Error('Resource not found.'), { status: 404 });
+  resource.active = !!body.active;
   resource.history.push({
     action: resource.active ? 'Enabled' : 'Disabled',
-    changedBy: req.user.name,
-    reason: req.body.reason || '',
+    changedBy: user.name,
+    reason: body.reason || '',
   });
   await resource.save();
 
   await logAction({
-    user: req.user,
+    user,
     action: resource.active ? 'Enabled Resource' : 'Disabled Resource',
     entity: 'Resource',
     entityId: resource._id,
     entityLabel: resource.name,
-    reason: req.body.reason || '',
+    reason: body.reason || '',
   });
 
-  res.json(resource);
+  return resource;
 }
 
-module.exports = { list, catalog, getById, create, update, setActive };
+module.exports = { listResources, getCatalog, getResourceById, createResource, updateResource, setResourceActive };

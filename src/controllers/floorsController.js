@@ -1,5 +1,5 @@
 const Floor = require('../models/Floor');
-const { logAction } = require('../utils/audit');
+const { logAction } = require('../services/audit.service');
 
 async function list(req, res) {
   const floors = await Floor.find().sort({ createdAt: 1 }).lean();

@@ -1,7 +1,7 @@
 const Issue = require('../models/Issue');
 const Booking = require('../models/Booking');
 const { BOOKING_STATUS, ISSUE_STATUS } = require('../utils/constants');
-const { logAction } = require('../utils/audit');
+const { logAction } = require('../services/audit.service');
 const { notify } = require('../utils/notify');
 
 async function nextIssueId() {
@@ -9,8 +9,8 @@ async function nextIssueId() {
   return `ISS-${String(count + 1).padStart(4, '0')}`;
 }
 
-async function list(req, res) {
-  const { search, status, resource, booking } = req.query;
+async function listIssues(queryOptions) {
+  const { search, status, resource, booking } = queryOptions;
   const query = {};
   if (status) query.status = status;
   if (booking) query.bookingRef = booking;
@@ -18,25 +18,25 @@ async function list(req, res) {
   if (search) query.$or = [{ issueId: new RegExp(search, 'i') }, { resourceName: new RegExp(search, 'i') }, { bookingRef: new RegExp(search, 'i') }];
 
   const issues = await Issue.find(query).sort({ reportedAt: -1 }).lean();
-  res.json(issues);
+  return issues;
 }
 
-async function getById(req, res) {
-  const issue = await Issue.findById(req.params.id).populate('booking').lean();
-  if (!issue) return res.status(404).json({ error: 'Issue not found.' });
-  res.json(issue);
+async function getIssueById(id) {
+  const issue = await Issue.findById(id).populate('booking').lean();
+  if (!issue) throw Object.assign(new Error('Issue not found.'), { status: 404 });
+  return issue;
 }
 
-async function uploadPhoto(req, res) {
-  if (!req.file) return res.status(400).json({ error: 'No photo uploaded.' });
-  res.status(201).json({ url: `/uploads/${req.file.filename}` });
+async function uploadIssuePhoto(file) {
+  if (!file) throw Object.assign(new Error('No photo uploaded.'), { status: 400 });
+  return { url: `/uploads/${file.filename}` };
 }
 
-async function create(req, res) {
-  const { bookingId, resourceName, issueType, description, photos } = req.body;
+async function createIssue(body, user) {
+  const { bookingId, resourceName, issueType, description, photos } = body;
   const booking = await Booking.findById(bookingId);
-  if (!booking) return res.status(404).json({ error: 'Booking not found.' });
-  if (!resourceName || !issueType) return res.status(400).json({ error: 'Resource and issue type are required.' });
+  if (!booking) throw Object.assign(new Error('Booking not found.'), { status: 404 });
+  if (!resourceName || !issueType) throw Object.assign(new Error('Resource and issue type are required.'), { status: 400 });
 
   const issue = await Issue.create({
     issueId: await nextIssueId(),
@@ -46,15 +46,15 @@ async function create(req, res) {
     issueType,
     description: description || '',
     photos: photos || [],
-    reportedBy: req.user.name,
+    reportedBy: user.name,
   });
 
   booking.status = BOOKING_STATUS.ISSUE_REPORTED;
-  booking.statusHistory.push({ status: BOOKING_STATUS.ISSUE_REPORTED, by: req.user.name, note: `${resourceName}: ${issueType}` });
+  booking.statusHistory.push({ status: BOOKING_STATUS.ISSUE_REPORTED, by: user.name, note: `${resourceName}: ${issueType}` });
   await booking.save();
 
   await logAction({
-    user: req.user,
+    user,
     action: 'Reported Issue',
     entity: 'Issue',
     entityId: issue._id,
@@ -70,24 +70,24 @@ async function create(req, res) {
     booking,
   });
 
-  res.status(201).json(issue);
+  return issue;
 }
 
-async function resolve(req, res) {
-  const issue = await Issue.findById(req.params.id);
-  if (!issue) return res.status(404).json({ error: 'Issue not found.' });
-  const { resolution, status } = req.body;
+async function resolveIssue(id, body, user) {
+  const issue = await Issue.findById(id);
+  if (!issue) throw Object.assign(new Error('Issue not found.'), { status: 404 });
+  const { resolution, status } = body;
 
   issue.status = status && Object.values(ISSUE_STATUS).includes(status) ? status : ISSUE_STATUS.RESOLVED;
   if (issue.status === ISSUE_STATUS.RESOLVED || issue.status === ISSUE_STATUS.CLOSED) {
     issue.resolution = resolution || '';
-    issue.resolvedBy = req.user.name;
+    issue.resolvedBy = user.name;
     issue.resolvedAt = new Date();
   }
   await issue.save();
 
   await logAction({
-    user: req.user,
+    user,
     action: 'Resolved Issue',
     entity: 'Issue',
     entityId: issue._id,
@@ -102,7 +102,7 @@ async function resolve(req, res) {
     booking: { _id: issue.booking, bookingRef: issue.bookingRef },
   });
 
-  res.json(issue);
+  return issue;
 }
 
-module.exports = { list, getById, create, resolve, uploadPhoto };
+module.exports = { listIssues, getIssueById, createIssue, resolveIssue, uploadIssuePhoto };

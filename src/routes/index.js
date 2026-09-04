@@ -21,15 +21,18 @@ const router = express.Router();
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: path.join(__dirname, '..', 'uploads'),
+    destination: path.join(__dirname, '..', '..', 'uploads'),
     filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
   }),
   limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)),
 });
 
+const tracker = require('../controllers/trackerController');
+
 // --- public ---
 router.post('/auth/login', auth.login);
+router.get('/tracker/:ref', tracker.track);
 
 // everything below requires a valid JWT
 router.use(authenticate);
@@ -77,7 +80,7 @@ router.put('/users/:id', requireRole('master_admin'), users.update);
 router.patch('/users/:id/status', requireRole('master_admin'), users.setStatus);
 router.patch('/users/:id/role', requireRole('master_admin'), users.setRole);
 
-router.get('/audit-log', auditLog.list);
+router.get('/audit-log', requireRole('admin', 'master_admin'), auditLog.list);
 
 router.get('/notifications', notifications.list);
 router.post('/notifications/:id/read', notifications.markRead);

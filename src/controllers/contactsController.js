@@ -1,5 +1,5 @@
 const Contact = require('../models/Contact');
-const { logAction } = require('../utils/audit');
+const { logAction } = require('../services/audit.service');
 
 async function list(req, res) {
   const { search, status } = req.query;

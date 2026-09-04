@@ -1,19 +1,19 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
-const connectDB = require('./config/db');
+const connectDB = require('../src/config/db');
 
-const User = require('./models/User');
-const Floor = require('./models/Floor');
-const Resource = require('./models/Resource');
-const Booking = require('./models/Booking');
-const Contact = require('./models/Contact');
-const AuditLog = require('./models/AuditLog');
-const Notification = require('./models/Notification');
-const Issue = require('./models/Issue');
-const Setting = require('./models/Setting');
+const User = require('../src/models/User');
+const Floor = require('../src/models/Floor');
+const Resource = require('../src/models/Resource');
+const Booking = require('../src/models/Booking');
+const Contact = require('../src/models/Contact');
+const AuditLog = require('../src/models/AuditLog');
+const Notification = require('../src/models/Notification');
+const Issue = require('../src/models/Issue');
+const Setting = require('../src/models/Setting');
 
-const { FLOORS, BOOKING_STATUS } = require('./utils/constants');
+const { FLOORS, BOOKING_STATUS } = require('../src/utils/constants');
 
 function todayStr(offsetDays = 0) {
   const d = new Date();
