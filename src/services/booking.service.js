@@ -11,6 +11,7 @@ const { notify } = require('../utils/notify');
 const { syncBookingStatus } = require('../utils/statusSync');
 const { getSettings } = require('../services/settings.service'); // TODO: move to settings service
 const { toMinutes, rangesOverlap } = require('../utils/time');
+const emailService = require('../services/email.service');
 
 async function syncMany(bookings) {
   return Promise.all(bookings.map((b) => syncBookingStatus(b)));
@@ -188,6 +189,9 @@ async function createBooking(body, user) {
     booking,
   });
 
+  // Email the organiser: booking received
+  emailService.sendBookingConfirmation(booking);
+
   return booking;
 }
 
@@ -332,6 +336,9 @@ async function approveBooking(id, body, user) {
     booking,
   });
 
+  // Email the organiser: booking approved
+  emailService.sendBookingApproved(booking);
+
   return booking;
 }
 
@@ -366,6 +373,9 @@ async function rejectBooking(id, body, user) {
     booking,
   });
 
+  // Email the organiser: booking rejected
+  emailService.sendBookingRejected(booking, reason);
+
   return booking;
 }
 
@@ -399,6 +409,9 @@ async function requestChangesBooking(id, body, user) {
     message: `Changes requested for ${booking.eventName}: ${comment}`,
     booking,
   });
+
+  // Email the organiser: changes requested
+  emailService.sendChangesRequested(booking, comment);
 
   return booking;
 }
