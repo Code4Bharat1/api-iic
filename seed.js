@@ -1,4 +1,5 @@
 require('dotenv').config();
+const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 
@@ -20,6 +21,11 @@ function todayStr(offsetDays = 0) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Default dev passwords — override with env vars
+const ORGANISER_PASSWORD = process.env.SEED_ORGANISER_PASSWORD || 'Organiser@123';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Admin@123';
+const MASTER_ADMIN_PASSWORD = process.env.SEED_MASTER_ADMIN_PASSWORD || 'MasterAdmin@123';
+
 async function seed() {
   await connectDB();
 
@@ -32,10 +38,17 @@ async function seed() {
   const floors = await Floor.insertMany(FLOORS);
   const floorByKey = Object.fromEntries(floors.map((f) => [f.key, f]));
 
+  // Hash passwords for all demo users
+  const [organiserHash, adminHash, masterHash] = await Promise.all([
+    bcrypt.hash(ORGANISER_PASSWORD, 10),
+    bcrypt.hash(ADMIN_PASSWORD, 10),
+    bcrypt.hash(MASTER_ADMIN_PASSWORD, 10),
+  ]);
+
   const users = await User.insertMany([
-    { userId: 'ORG-1001', name: 'Event Organiser', email: 'organiser@iic.org', mobile: '+91 90000 00001', role: 'organiser', department: 'Research Cell' },
-    { userId: 'ADM-2001', name: 'IIC Operations Admin', email: 'admin@iic.org', mobile: '+91 90000 00002', role: 'admin', department: 'IIC Operations' },
-    { userId: 'MST-3001', name: 'System Administrator', email: 'master.admin@iic.org', mobile: '+91 90000 00003', role: 'master_admin', department: 'IIC Administration' },
+    { userId: 'ORG-1001', name: 'Event Organiser', email: 'organiser@iic.org', mobile: '+91 90000 00001', role: 'organiser', department: 'Research Cell', passwordHash: organiserHash },
+    { userId: 'ADM-2001', name: 'IIC Operations Admin', email: 'admin@iic.org', mobile: '+91 90000 00002', role: 'admin', department: 'IIC Operations', passwordHash: adminHash },
+    { userId: 'MST-3001', name: 'System Administrator', email: 'master.admin@iic.org', mobile: '+91 90000 00003', role: 'master_admin', department: 'IIC Administration', passwordHash: masterHash },
   ]);
   const organiser = users.find((u) => u.role === 'organiser');
 
@@ -265,12 +278,15 @@ async function seed() {
     { targetUserId: organiser.userId, type: 'closure_required', message: 'Research Committee Meeting requires closure.', bookingRef: createdBookings.find((b) => b.eventName === 'Research Committee Meeting').bookingRef },
   ]);
 
-  console.log('Seed complete:');
+  console.log('\nSeed complete:');
   console.log(`  users: ${users.length}`);
   console.log(`  floors: ${floors.length}`);
   console.log(`  resources: ${resources.length}`);
   console.log(`  bookings: ${createdBookings.length}`);
-  console.log('Demo login ids ->', users.map((u) => `${u.role}: ${u._id}`).join(' | '));
+  console.log('\nDemo login credentials:');
+  console.log(`  Organiser  — userId: ORG-1001  password: ${ORGANISER_PASSWORD}`);
+  console.log(`  Admin      — userId: ADM-2001  password: ${ADMIN_PASSWORD}`);
+  console.log(`  MasterAdmin— userId: MST-3001  password: ${MASTER_ADMIN_PASSWORD}`);
 
   await mongoose.disconnect();
 }

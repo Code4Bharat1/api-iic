@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
     userId: { type: String, required: true, unique: true }, // authorised user id / login id
     name: { type: String, required: true },
     email: { type: String, required: true },
+    passwordHash: { type: String, default: '' }, // bcrypt hash; empty = no password set
     mobile: { type: String, default: '' },
     role: { type: String, enum: ROLES, required: true },
     department: { type: String, default: '' },

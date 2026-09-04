@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { currentUser, requireRole } = require('../middleware/currentUser');
+const { authenticate, requireRole } = require('../middleware/authMiddleware');
 
 const auth = require('../controllers/authController');
 const floors = require('../controllers/floorsController');
@@ -28,11 +28,11 @@ const upload = multer({
   fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)),
 });
 
-// --- auth (no currentUser required) ---
-router.post('/auth/demo-login', auth.demoLogin);
+// --- public ---
+router.post('/auth/login', auth.login);
 
-// everything below requires a demo-authenticated user
-router.use(currentUser);
+// everything below requires a valid JWT
+router.use(authenticate);
 
 router.get('/auth/me', auth.me);
 
@@ -74,6 +74,8 @@ router.put('/contacts/:id', requireRole('admin', 'master_admin'), contacts.updat
 router.get('/users', requireRole('master_admin'), users.list);
 router.post('/users', requireRole('master_admin'), users.create);
 router.put('/users/:id', requireRole('master_admin'), users.update);
+router.patch('/users/:id/status', requireRole('master_admin'), users.setStatus);
+router.patch('/users/:id/role', requireRole('master_admin'), users.setRole);
 
 router.get('/audit-log', auditLog.list);
 
