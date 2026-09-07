@@ -15,8 +15,8 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
-const connectDB = require('../config/db');
-const User = require('../models/User');
+const connectDB = require('../src/config/db');
+const User = require('../src/models/User');
 
 async function seedAdmin() {
   const { MASTER_ADMIN_USER_ID, MASTER_ADMIN_NAME, MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD } = process.env;

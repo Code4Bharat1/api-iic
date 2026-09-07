@@ -12,6 +12,7 @@ const { syncBookingStatus } = require('../utils/statusSync');
 const { getSettings } = require('../services/settings.service'); // TODO: move to settings service
 const { toMinutes, rangesOverlap } = require('../utils/time');
 const emailService = require('../services/email.service');
+const { uploadBuffer } = require('../utils/gridfs');
 
 async function syncMany(bookings) {
   return Promise.all(bookings.map((b) => syncBookingStatus(b)));
@@ -424,7 +425,8 @@ async function submitClosurePhoto(id, file, category, user) {
   }
   if (!file) throw Object.assign(new Error('No photo uploaded.'), { status: 400 });
 
-  const url = `/uploads/${file.filename}`;
+  const fileId = await uploadBuffer(file.buffer, file.originalname, file.mimetype);
+  const url = `/photos/${fileId}`;
   const photos = booking.closure.photos || {};
   photos[category] = [...(photos[category] || []), url];
   booking.closure.photos = photos;

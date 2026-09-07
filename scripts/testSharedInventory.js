@@ -19,18 +19,18 @@ async function runTests() {
       name: 'Phone',
       category: 'Electronics',
       inventoryScope: 'shared',
-      floor: 'all',
+      floors: [],
       totalQuantity: 20,
       active: true,
     });
   } else {
     phone.inventoryScope = 'shared';
-    phone.floor = 'all';
+    phone.floors = [];
     phone.totalQuantity = 20;
     phone.active = true;
     await phone.save();
   }
-  console.log(`[PASS 1] Phone resource configured: scope=${phone.inventoryScope}, floor=${phone.floor}, totalQty=${phone.totalQuantity}`);
+  console.log(`[PASS 1] Phone resource configured: scope=${phone.inventoryScope}, totalQty=${phone.totalQuantity}`);
 
   // Find an organizer user
   let organizer = await User.findOne({ role: 'organizer' });

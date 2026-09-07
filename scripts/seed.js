@@ -62,17 +62,18 @@ async function seed() {
   const perFloor = { basement: { chairs: 150, tables: 30, mics: 10 }, first: { chairs: 120, tables: 20, mics: 10 }, second: { chairs: 180, tables: 35, mics: 10 } };
   ['basement', 'first', 'second'].forEach((floorKey) => {
     const cfg = perFloor[floorKey];
-    resourceSeed.push({ name: 'Chairs', category: 'Seating', floor: floorKey, unitType: 'quantity', totalQuantity: cfg.chairs, history: [{ action: 'Created', newQuantity: cfg.chairs, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
-    resourceSeed.push({ name: 'Tables', category: 'Furniture', floor: floorKey, unitType: 'quantity', totalQuantity: cfg.tables, history: [{ action: 'Created', newQuantity: cfg.tables, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
-    resourceSeed.push({ name: 'Microphones', category: 'Audio', floor: floorKey, unitType: 'quantity', totalQuantity: cfg.mics, history: [{ action: 'Created', newQuantity: cfg.mics, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
+    const scope = { inventoryScope: 'floor', floors: [floorKey] };
+    resourceSeed.push({ name: 'Chairs', category: 'Seating', ...scope, unitType: 'quantity', totalQuantity: cfg.chairs, history: [{ action: 'Created', newQuantity: cfg.chairs, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
+    resourceSeed.push({ name: 'Tables', category: 'Furniture', ...scope, unitType: 'quantity', totalQuantity: cfg.tables, history: [{ action: 'Created', newQuantity: cfg.tables, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
+    resourceSeed.push({ name: 'Microphones', category: 'Audio', ...scope, unitType: 'quantity', totalQuantity: cfg.mics, history: [{ action: 'Created', newQuantity: cfg.mics, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
     if (floorByKey[floorKey].interactiveTV) {
-      resourceSeed.push({ name: 'Interactive TV', category: 'Electronics', floor: floorKey, unitType: 'toggle', totalQuantity: 1, history: [{ action: 'Created', newQuantity: 1, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
+      resourceSeed.push({ name: 'Interactive TV', category: 'Electronics', ...scope, unitType: 'toggle', totalQuantity: 1, history: [{ action: 'Created', newQuantity: 1, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
     }
-    resourceSeed.push({ name: 'Podium', category: 'Furniture', floor: floorKey, unitType: 'quantity', totalQuantity: 2, history: [{ action: 'Created', newQuantity: 2, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
-    resourceSeed.push({ name: 'Extension Boards', category: 'Electronics', floor: floorKey, unitType: 'quantity', totalQuantity: 10, history: [{ action: 'Created', newQuantity: 10, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
+    resourceSeed.push({ name: 'Podium', category: 'Furniture', ...scope, unitType: 'quantity', totalQuantity: 2, history: [{ action: 'Created', newQuantity: 2, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
+    resourceSeed.push({ name: 'Extension Boards', category: 'Electronics', ...scope, unitType: 'quantity', totalQuantity: 10, history: [{ action: 'Created', newQuantity: 10, changedBy: 'System Administrator', reason: 'Initial inventory' }] });
   });
   const resources = await Resource.insertMany(resourceSeed);
-  const findResource = (floor, name) => resources.find((r) => r.floor === floor && r.name === name);
+  const findResource = (floor, name) => resources.find((r) => (r.floors || []).includes(floor) && r.name === name);
 
   const firstFloorChairs = findResource('first', 'Chairs');
   firstFloorChairs.history.push({ action: 'Quantity Updated', oldQuantity: 100, newQuantity: 120, changedBy: 'IIC Operations Admin', reason: 'New inventory received' });

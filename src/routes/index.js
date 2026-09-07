@@ -1,6 +1,5 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
 const { authenticate, requireRole } = require('../middleware/authMiddleware');
 
 const auth = require('../controllers/authController');
@@ -19,11 +18,10 @@ const dashboard = require('../controllers/dashboardController');
 
 const router = express.Router();
 
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: path.join(__dirname, '..', '..', 'uploads'),
-    filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname)}`),
-  }),
+// Closure/issue photos are buffered in memory then written to GridFS (in
+// Mongo) instead of local disk — see the routes below that use this.
+const uploadToMemory = multer({
+  storage: multer.memoryStorage(),
   limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)),
 });
@@ -63,14 +61,14 @@ router.put('/bookings/:id', bookings.update);
 router.post('/bookings/:id/approve', requireRole('admin', 'master_admin'), bookings.approve);
 router.post('/bookings/:id/reject', requireRole('admin', 'master_admin'), bookings.reject);
 router.post('/bookings/:id/request-changes', requireRole('admin', 'master_admin'), bookings.requestChanges);
-router.post('/bookings/:id/closure/photo', upload.single('photo'), bookings.submitClosurePhoto);
+router.post('/bookings/:id/closure/photo', uploadToMemory.single('photo'), bookings.submitClosurePhoto);
 router.post('/bookings/:id/closure/submit', bookings.submitClosure);
 router.post('/bookings/:id/closure/verify', requireRole('admin', 'master_admin'), bookings.verifyClosure);
 router.get('/bookings/:id/competing', requireRole('admin', 'master_admin'), bookings.competing);
 
 router.get('/issues', issues.list);
 router.get('/issues/:id', issues.getById);
-router.post('/issues/photo', requireRole('admin', 'master_admin'), upload.single('photo'), issues.uploadPhoto);
+router.post('/issues/photo', requireRole('admin', 'master_admin'), uploadToMemory.single('photo'), issues.uploadPhoto);
 router.post('/issues', requireRole('admin', 'master_admin'), issues.create);
 router.post('/issues/:id/resolve', requireRole('admin', 'master_admin'), issues.resolve);
 

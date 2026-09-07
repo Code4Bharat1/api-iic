@@ -69,7 +69,8 @@ async function runReport(type, filters, user) {
           const line = b.resources.find((r) => String(r.resource) === String(resource._id));
           return sum + (line ? line.quantity : 0);
         }, 0);
-        return { resourceId: resource._id, name: resource.name, floor: resource.floor, totalQuantity: resource.totalQuantity, bookingsUsing: relevant.length, totalRequested };
+        const floor = resource.inventoryScope === 'shared' ? 'all' : (resource.floors || []).join(', ');
+        return { resourceId: resource._id, name: resource.name, floor, totalQuantity: resource.totalQuantity, bookingsUsing: relevant.length, totalRequested };
       });
       return { rows, summary: { resources: rows.length } };
     }

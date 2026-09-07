@@ -13,27 +13,27 @@ const Booking = require('../src/models/Booking');
 
 const CLEAN_INVENTORY = [
   // Basement
-  { name: 'Chairs', category: 'Seating', floor: 'basement', unitType: 'quantity', totalQuantity: 150, active: true },
-  { name: 'Tables', category: 'Furniture', floor: 'basement', unitType: 'quantity', totalQuantity: 30, active: true },
-  { name: 'Microphones', category: 'Audio', floor: 'basement', unitType: 'quantity', totalQuantity: 10, active: true },
-  { name: 'Podium', category: 'Furniture', floor: 'basement', unitType: 'quantity', totalQuantity: 2, active: true },
-  { name: 'Extension Boards', category: 'Electronics', floor: 'basement', unitType: 'quantity', totalQuantity: 10, active: true },
-  { name: 'Interactive TV', category: 'Electronics', floor: 'basement', unitType: 'toggle', totalQuantity: 1, active: true },
+  { name: 'Chairs', category: 'Seating', inventoryScope: 'floor', floors: ['basement'], unitType: 'quantity', totalQuantity: 150, active: true },
+  { name: 'Tables', category: 'Furniture', inventoryScope: 'floor', floors: ['basement'], unitType: 'quantity', totalQuantity: 30, active: true },
+  { name: 'Microphones', category: 'Audio', inventoryScope: 'floor', floors: ['basement'], unitType: 'quantity', totalQuantity: 10, active: true },
+  { name: 'Podium', category: 'Furniture', inventoryScope: 'floor', floors: ['basement'], unitType: 'quantity', totalQuantity: 2, active: true },
+  { name: 'Extension Boards', category: 'Electronics', inventoryScope: 'floor', floors: ['basement'], unitType: 'quantity', totalQuantity: 10, active: true },
+  { name: 'Interactive TV', category: 'Electronics', inventoryScope: 'floor', floors: ['basement'], unitType: 'toggle', totalQuantity: 1, active: true },
 
   // First Floor
-  { name: 'Chairs', category: 'Seating', floor: 'first', unitType: 'quantity', totalQuantity: 120, active: true },
-  { name: 'Tables', category: 'Furniture', floor: 'first', unitType: 'quantity', totalQuantity: 20, active: true },
-  { name: 'Microphones', category: 'Audio', floor: 'first', unitType: 'quantity', totalQuantity: 10, active: true },
-  { name: 'Podium', category: 'Furniture', floor: 'first', unitType: 'quantity', totalQuantity: 2, active: true },
-  { name: 'Extension Boards', category: 'Electronics', floor: 'first', unitType: 'quantity', totalQuantity: 10, active: true },
+  { name: 'Chairs', category: 'Seating', inventoryScope: 'floor', floors: ['first'], unitType: 'quantity', totalQuantity: 120, active: true },
+  { name: 'Tables', category: 'Furniture', inventoryScope: 'floor', floors: ['first'], unitType: 'quantity', totalQuantity: 20, active: true },
+  { name: 'Microphones', category: 'Audio', inventoryScope: 'floor', floors: ['first'], unitType: 'quantity', totalQuantity: 10, active: true },
+  { name: 'Podium', category: 'Furniture', inventoryScope: 'floor', floors: ['first'], unitType: 'quantity', totalQuantity: 2, active: true },
+  { name: 'Extension Boards', category: 'Electronics', inventoryScope: 'floor', floors: ['first'], unitType: 'quantity', totalQuantity: 10, active: true },
 
   // Second Floor
-  { name: 'Chairs', category: 'Seating', floor: 'second', unitType: 'quantity', totalQuantity: 180, active: true },
-  { name: 'Tables', category: 'Furniture', floor: 'second', unitType: 'quantity', totalQuantity: 35, active: true },
-  { name: 'Microphones', category: 'Audio', floor: 'second', unitType: 'quantity', totalQuantity: 10, active: true },
-  { name: 'Podium', category: 'Furniture', floor: 'second', unitType: 'quantity', totalQuantity: 2, active: true },
-  { name: 'Extension Boards', category: 'Electronics', floor: 'second', unitType: 'quantity', totalQuantity: 10, active: true },
-  { name: 'Interactive TV', category: 'Electronics', floor: 'second', unitType: 'toggle', totalQuantity: 1, active: true },
+  { name: 'Chairs', category: 'Seating', inventoryScope: 'floor', floors: ['second'], unitType: 'quantity', totalQuantity: 180, active: true },
+  { name: 'Tables', category: 'Furniture', inventoryScope: 'floor', floors: ['second'], unitType: 'quantity', totalQuantity: 35, active: true },
+  { name: 'Microphones', category: 'Audio', inventoryScope: 'floor', floors: ['second'], unitType: 'quantity', totalQuantity: 10, active: true },
+  { name: 'Podium', category: 'Furniture', inventoryScope: 'floor', floors: ['second'], unitType: 'quantity', totalQuantity: 2, active: true },
+  { name: 'Extension Boards', category: 'Electronics', inventoryScope: 'floor', floors: ['second'], unitType: 'quantity', totalQuantity: 10, active: true },
+  { name: 'Interactive TV', category: 'Electronics', inventoryScope: 'floor', floors: ['second'], unitType: 'toggle', totalQuantity: 1, active: true },
 ];
 
 async function resetResources() {
@@ -64,7 +64,9 @@ async function resetResources() {
   // Create lookup map: `${floor}:${name.toLowerCase()}` -> resourceDoc
   const resourceMap = new Map();
   for (const res of createdResources) {
-    resourceMap.set(`${res.floor}:${res.name.toLowerCase()}`, res);
+    for (const floorKey of res.floors) {
+      resourceMap.set(`${floorKey}:${res.name.toLowerCase()}`, res);
+    }
   }
 
   // Update existing bookings to link to new resource IDs

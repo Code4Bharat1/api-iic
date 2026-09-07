@@ -45,7 +45,7 @@ async function resourceUtilisation() {
     return {
       resourceId: resource._id,
       name: resource.name,
-      floor: resource.floor,
+      floor: resource.inventoryScope === 'shared' ? 'all' : (resource.floors || []).join(', '),
       percent: resource.totalQuantity ? Math.round((reserved / resource.totalQuantity) * 100) : 0,
     };
   });

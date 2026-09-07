@@ -39,16 +39,15 @@ async function listResources(queryOptions) {
   if (category) query.category = category;
   if (floor) {
     query.$or = [
-      { floor: floor },
+      { floors: floor },
       { inventoryScope: 'shared' },
-      { floor: 'all' },
     ];
   }
   if (status === 'active') query.active = true;
   if (status === 'inactive') query.active = false;
   if (search) query.name = new RegExp(search, 'i');
 
-  const resources = await Resource.find(query).sort({ inventoryScope: 1, floor: 1, category: 1, name: 1 }).lean();
+  const resources = await Resource.find(query).sort({ inventoryScope: 1, category: 1, name: 1 }).lean();
   return await withTodayAvailability(resources);
 }
 
@@ -63,8 +62,7 @@ async function getCatalog(queryOptions) {
     $or: [
       { inventoryScope: 'shared' },
       { inventoryScope: { $exists: false } },
-      { floor: floor },
-      { floor: 'all' },
+      { floors: floor },
     ],
   }).lean();
   const results = await Promise.all(
@@ -96,14 +94,14 @@ async function getResourceById(id) {
 }
 
 async function createResource(body, user) {
-  const { name, category, floor, inventoryScope = 'shared', unitType, totalQuantity, notes } = body;
+  const { name, category, floors, inventoryScope = 'shared', unitType, totalQuantity, notes } = body;
   if (!name || !category) throw Object.assign(new Error('name and category are required.'), { status: 400 });
 
   const effectiveScope = inventoryScope === 'floor' ? 'floor' : 'shared';
-  const effectiveFloor = effectiveScope === 'shared' ? (floor || 'all') : floor;
+  const effectiveFloors = effectiveScope === 'shared' ? [] : (Array.isArray(floors) ? floors.filter(Boolean) : []);
 
-  if (effectiveScope === 'floor' && (!effectiveFloor || effectiveFloor === 'all')) {
-    throw Object.assign(new Error('Floor is required for floor-specific resources.'), { status: 400 });
+  if (effectiveScope === 'floor' && effectiveFloors.length === 0) {
+    throw Object.assign(new Error('At least one floor is required for floor-specific resources.'), { status: 400 });
   }
 
   // Phase 5 validation logic for quantities
@@ -116,7 +114,7 @@ async function createResource(body, user) {
     name,
     category,
     inventoryScope: effectiveScope,
-    floor: effectiveFloor,
+    floors: effectiveFloors,
     unitType: unitType || 'quantity',
     totalQuantity: parsedQuantity,
     notes: notes || '',
@@ -140,21 +138,34 @@ async function updateResource(id, body, user) {
   if (!resource) throw Object.assign(new Error('Resource not found.'), { status: 404 });
 
   const before = resource.toObject();
-  const { name, category, floor, inventoryScope, unitType, totalQuantity, notes, reason } = body;
+  const { name, category, floors, inventoryScope, unitType, totalQuantity, notes, reason } = body;
 
   if (name !== undefined) resource.name = name;
   if (category !== undefined) resource.category = category;
   if (notes !== undefined) resource.notes = notes;
-  if (inventoryScope !== undefined) {
-    resource.inventoryScope = inventoryScope;
-    if (inventoryScope === 'shared') {
-      resource.floor = floor || 'all';
-    }
-  }
-  if (floor !== undefined && (resource.inventoryScope === 'floor' || floor !== 'all')) {
-    resource.floor = floor;
-  }
   if (unitType !== undefined) resource.unitType = unitType;
+
+  const nextScope = inventoryScope !== undefined ? (inventoryScope === 'floor' ? 'floor' : 'shared') : resource.inventoryScope;
+  const nextFloors = nextScope === 'shared'
+    ? []
+    : (floors !== undefined ? (Array.isArray(floors) ? floors.filter(Boolean) : []) : resource.floors);
+
+  if (nextScope === 'floor' && nextFloors.length === 0) {
+    throw Object.assign(new Error('At least one floor is required for floor-specific resources.'), { status: 400 });
+  }
+
+  const describeScope = (scope, list) => (scope === 'shared' ? 'Shared (All Floors)' : list.join(', '));
+  const floorsChanged = nextScope !== resource.inventoryScope
+    || JSON.stringify([...resource.floors].sort()) !== JSON.stringify([...nextFloors].sort());
+  if (floorsChanged) {
+    resource.history.push({
+      action: 'Floor Reassigned',
+      changedBy: user.name,
+      reason: reason || `${describeScope(resource.inventoryScope, resource.floors)} → ${describeScope(nextScope, nextFloors)}`,
+    });
+  }
+  resource.inventoryScope = nextScope;
+  resource.floors = nextFloors;
 
   if (totalQuantity !== undefined && totalQuantity !== '') {
     const parsedQuantity = Number(totalQuantity);
@@ -176,18 +187,6 @@ async function updateResource(id, body, user) {
     }
   }
 
-  if (floor !== undefined && floor !== resource.floor) {
-    resource.history.push({
-      action: 'Floor Reassigned',
-      changedBy: user.name,
-      reason: reason || `${resource.floor} → ${floor}`,
-    });
-    resource.floor = floor;
-  }
-  if (name !== undefined) resource.name = name;
-  if (category !== undefined) resource.category = category;
-  if (notes !== undefined) resource.notes = notes;
-
   await resource.save();
 
   await logAction({
@@ -197,7 +196,7 @@ async function updateResource(id, body, user) {
     entityId: resource._id,
     entityLabel: resource.name,
     oldValue: before,
-    newValue: { name: resource.name, category: resource.category, floor: resource.floor, totalQuantity: resource.totalQuantity, notes: resource.notes },
+    newValue: { name: resource.name, category: resource.category, inventoryScope: resource.inventoryScope, floors: resource.floors, totalQuantity: resource.totalQuantity, notes: resource.notes },
     reason: reason || '',
   });
 

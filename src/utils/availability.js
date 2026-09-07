@@ -101,7 +101,7 @@ async function getResourceAvailability(arg1, arg2, arg3, arg4, arg5) {
     };
   }
 
-  const isShared = !resource.inventoryScope || resource.inventoryScope === 'shared' || resource.floor === 'all';
+  const isShared = !resource.inventoryScope || resource.inventoryScope === 'shared';
 
   const query = {
     date,
@@ -109,8 +109,10 @@ async function getResourceAvailability(arg1, arg2, arg3, arg4, arg5) {
     'resources.resource': resource._id,
   };
 
-  if (!isShared && resource.floor && resource.floor !== 'all') {
-    query.floor = resource.floor;
+  if (!isShared && Array.isArray(resource.floors) && resource.floors.length) {
+    // Pooled across whichever floors this resource is assigned to — a reservation
+    // on any one of them deducts from the shared total for all of them.
+    query.floor = { $in: resource.floors };
   }
 
   if (excludeBookingId) query._id = { $ne: excludeBookingId };

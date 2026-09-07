@@ -3,6 +3,7 @@ const Booking = require('../models/Booking');
 const { BOOKING_STATUS, ISSUE_STATUS } = require('../utils/constants');
 const { logAction } = require('../services/audit.service');
 const { notify } = require('../utils/notify');
+const { uploadBuffer } = require('../utils/gridfs');
 
 async function nextIssueId() {
   const count = await Issue.countDocuments();
@@ -29,7 +30,8 @@ async function getIssueById(id) {
 
 async function uploadIssuePhoto(file) {
   if (!file) throw Object.assign(new Error('No photo uploaded.'), { status: 400 });
-  return { url: `/uploads/${file.filename}` };
+  const fileId = await uploadBuffer(file.buffer, file.originalname, file.mimetype);
+  return { url: `/photos/${fileId}` };
 }
 
 async function createIssue(body, user) {

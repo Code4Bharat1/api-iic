@@ -17,8 +17,8 @@ async function validateResources({ floor, date, startTime, endTime, requestedRes
       errors.push({ resourceId: req.resourceId, message: 'Resource is not available.' });
       continue;
     }
-    const isShared = !resource.inventoryScope || resource.inventoryScope === 'shared' || resource.floor === 'all';
-    if (!isShared && resource.floor !== floor) {
+    const isShared = !resource.inventoryScope || resource.inventoryScope === 'shared';
+    if (!isShared && !(resource.floors || []).includes(floor)) {
       errors.push({ resourceId: req.resourceId, message: 'Resource is not available on this floor.' });
       continue;
     }
