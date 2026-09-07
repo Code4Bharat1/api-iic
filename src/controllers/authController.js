@@ -9,4 +9,9 @@ async function me(req, res) {
   res.json(req.user);
 }
 
-module.exports = { login, me };
+async function changePassword(req, res) {
+  const result = await authService.changePassword(req.user._id, req.body.currentPassword, req.body.newPassword);
+  res.json(result);
+}
+
+module.exports = { login, me, changePassword };

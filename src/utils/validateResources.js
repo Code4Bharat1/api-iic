@@ -13,7 +13,12 @@ async function validateResources({ floor, date, startTime, endTime, requestedRes
   for (const req of requestedResources || []) {
     if (!req.quantity) continue;
     const resource = await Resource.findById(req.resourceId).lean();
-    if (!resource || !resource.active || resource.floor !== floor) {
+    if (!resource || !resource.active) {
+      errors.push({ resourceId: req.resourceId, message: 'Resource is not available.' });
+      continue;
+    }
+    const isShared = !resource.inventoryScope || resource.inventoryScope === 'shared' || resource.floor === 'all';
+    if (!isShared && resource.floor !== floor) {
       errors.push({ resourceId: req.resourceId, message: 'Resource is not available on this floor.' });
       continue;
     }
@@ -24,7 +29,7 @@ async function validateResources({ floor, date, startTime, endTime, requestedRes
         name: resource.name,
         requested: req.quantity,
         available: avail.available,
-        message: `Only ${avail.available} ${resource.name} ${resource.unitType === 'toggle' ? 'is' : 'are'} available during this period.`,
+        message: `Only ${avail.available} ${resource.name} ${avail.available === 1 ? 'is' : 'are'} available for the selected date and time.`,
       });
     }
     lines.push({

@@ -25,4 +25,14 @@ async function setRole(req, res) {
   res.json(result);
 }
 
-module.exports = { list, create, update, setStatus, setRole };
+async function resendCredentials(req, res) {
+  const result = await userService.resendCredentials(req.params.id, req.user);
+  res.json(result);
+}
+
+async function remove(req, res) {
+  const result = await userService.deleteUser(req.params.id, req.user);
+  res.json(result);
+}
+
+module.exports = { list, create, update, setStatus, setRole, resendCredentials, remove };

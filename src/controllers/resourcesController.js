@@ -30,4 +30,9 @@ async function setActive(req, res) {
   res.json(resource);
 }
 
-module.exports = { list, catalog, getById, create, update, setActive };
+async function remove(req, res) {
+  const result = await resourceService.deleteResource(req.params.id, req.user);
+  res.json(result);
+}
+
+module.exports = { list, catalog, getById, create, update, setActive, remove };

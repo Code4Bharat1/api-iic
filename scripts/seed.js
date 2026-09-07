@@ -59,7 +59,7 @@ async function seed() {
   ]);
 
   const resourceSeed = [];
-  const perFloor = { basement: { chairs: 150, tables: 30, mics: 4 }, first: { chairs: 120, tables: 20, mics: 3 }, second: { chairs: 180, tables: 35, mics: 4 } };
+  const perFloor = { basement: { chairs: 150, tables: 30, mics: 10 }, first: { chairs: 120, tables: 20, mics: 10 }, second: { chairs: 180, tables: 35, mics: 10 } };
   ['basement', 'first', 'second'].forEach((floorKey) => {
     const cfg = perFloor[floorKey];
     resourceSeed.push({ name: 'Chairs', category: 'Seating', floor: floorKey, unitType: 'quantity', totalQuantity: cfg.chairs, history: [{ action: 'Created', newQuantity: cfg.chairs, changedBy: 'System Administrator', reason: 'Initial inventory' }] });

@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ROLES, required: true },
     department: { type: String, default: '' },
     active: { type: Boolean, default: true },
+    mustChangePassword: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

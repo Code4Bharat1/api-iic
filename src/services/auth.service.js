@@ -30,7 +30,7 @@ async function loginUser(identifier, password) {
   }
 
   const token = jwt.sign(
-    { sub: user._id, role: user.role },
+    { sub: user._id, role: user.role, mustChangePassword: user.mustChangePassword },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
   );
@@ -46,6 +46,7 @@ async function loginUser(identifier, password) {
   return {
     success: true,
     token,
+    mustChangePassword: !!user.mustChangePassword,
     user: {
       id: user._id,
       userId: user.userId,
@@ -58,4 +59,45 @@ async function loginUser(identifier, password) {
   };
 }
 
-module.exports = { loginUser };
+async function changePassword(userId, currentPassword, newPassword) {
+  if (!currentPassword || !newPassword) {
+    throw Object.assign(new Error('currentPassword and newPassword are required.'), { status: 400 });
+  }
+  if (newPassword.length < 8) {
+    throw Object.assign(new Error('New password must be at least 8 characters.'), { status: 400 });
+  }
+
+  const user = await User.findById(userId);
+  if (!user) throw Object.assign(new Error('User not found.'), { status: 404 });
+
+  const match = await bcrypt.compare(currentPassword, user.passwordHash || '');
+  if (!match) throw Object.assign(new Error('Current password is incorrect.'), { status: 401 });
+
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  user.mustChangePassword = false;
+  await user.save();
+
+  // Issue a fresh token without the mustChangePassword flag
+  const token = jwt.sign(
+    { sub: user._id, role: user.role, mustChangePassword: false },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
+  );
+
+  return {
+    success: true,
+    token,
+    mustChangePassword: false,
+    user: {
+      id: user._id,
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      department: user.department,
+      mobile: user.mobile,
+    },
+  };
+}
+
+module.exports = { loginUser, changePassword };

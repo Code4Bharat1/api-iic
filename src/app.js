@@ -13,8 +13,11 @@ app.use('/api', routes);
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ 
+  const status = err.status || 500;
+  if (status >= 500) {
+    console.error(err);
+  }
+  res.status(status).json({ 
     error: err.message || 'Internal server error',
     ...(err.errors && { errors: err.errors }),
     ...(err.conflict && { conflict: err.conflict, conflicts: err.conflicts, canOverride: err.canOverride }),

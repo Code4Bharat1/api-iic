@@ -1,9 +1,16 @@
 const Floor = require('../models/Floor');
 const Resource = require('../models/Resource');
 const Booking = require('../models/Booking');
-const { getFloorConflicts, getResourceAvailability } = require('../utils/availability');
+const { getFloorConflicts, getResourceAvailability, getFreeWindows } = require('../utils/availability');
 const { rangesOverlap } = require('../utils/time');
-const { RESERVING_STATUSES } = require('../utils/constants');
+const { RESERVING_STATUSES, BOOKING_STATUS } = require('../utils/constants');
+
+// Statuses shown as "booked" on the timeline (same set as BLOCKING_STATUSES in availability.js)
+const TIMELINE_BLOCKING_STATUSES = [
+  ...RESERVING_STATUSES,
+  BOOKING_STATUS.PENDING_APPROVAL,
+  BOOKING_STATUS.CHANGE_REQUESTED,
+];
 
 const TIMELINE_HOURS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
 
@@ -17,9 +24,13 @@ async function checkAvailability(query) {
     resources.map((resource) => getResourceAvailability({ resource, date, startTime: start, endTime: end }))
   );
 
+  // Compute the free sub-windows within the requested range
+  const freeWindows = getFreeWindows(start, end, conflicts);
+
   return {
     available: conflicts.length === 0,
     conflicts: conflicts.map((c) => ({ id: c._id, eventName: c.eventName, startTime: c.startTime, endTime: c.endTime })),
+    freeWindows,          // available slots inside the selected range
     resources: resourceAvailability,
   };
 }
@@ -29,7 +40,8 @@ async function getTimeline(query) {
   if (!date) throw Object.assign(new Error('date is required.'), { status: 400 });
 
   const floors = await Floor.find({ bookable: true }).sort({ createdAt: 1 }).lean();
-  const bookings = await Booking.find({ date, status: { $in: RESERVING_STATUSES } }).lean();
+  // Include pending/change-requested bookings so the grid is consistent with checkAvailability
+  const bookings = await Booking.find({ date, status: { $in: TIMELINE_BLOCKING_STATUSES } }).lean();
 
   const grid = floors.map((floor) => {
     const floorBookings = bookings.filter((b) => b.floor === floor.key);
@@ -47,3 +59,4 @@ async function getTimeline(query) {
 }
 
 module.exports = { checkAvailability, getTimeline };
+

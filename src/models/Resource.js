@@ -16,9 +16,10 @@ const resourceSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     category: { type: String, required: true }, // Seating, Furniture, Electronics, Audio, Other
-    floor: { type: String, required: true }, // floor key this inventory belongs to
+    inventoryScope: { type: String, enum: ['shared', 'floor'], default: 'shared' },
+    floor: { type: String, default: 'all' }, // 'all' for shared inventory, or specific floor key for floor-specific inventory
     unitType: { type: String, enum: ['quantity', 'toggle'], default: 'quantity' },
-    totalQuantity: { type: Number, default: 1 }, // for toggle type: 1 = the single unit (TV) exists
+    totalQuantity: { type: Number, default: 0 },
     active: { type: Boolean, default: true },
     notes: { type: String, default: '' },
     history: { type: [historyEntrySchema], default: [] },

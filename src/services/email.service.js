@@ -27,8 +27,11 @@ function getTransporter() {
     return null; // not configured
   }
   _transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,        // STARTTLS
     auth: { user: MAIL_USER, pass: MAIL_PASS },
+    tls: { rejectUnauthorized: false },
   });
   return _transporter;
 }
@@ -206,9 +209,38 @@ async function sendChangesRequested(booking, comment) {
   });
 }
 
+/**
+ * Sent when Master Admin creates a new user account.
+ * Delivers login credentials (userId + temporary password) to the user's email.
+ *
+ * @param {{ name: string, email: string, userId: string }} user
+ * @param {string} tempPassword  — plain-text password (only available at creation time)
+ */
+async function sendUserCredentials(user, tempPassword) {
+  const loginUrl = process.env.APP_URL || 'http://localhost:3000';
+  await sendMail({
+    to: user.email,
+    subject: '[IIC] Your Account Has Been Created — Login Credentials',
+    html: layout(`
+      <h2>Welcome to IIC Event Management!</h2>
+      <p>Hi ${user.name},</p>
+      <p>An account has been created for you on the <strong>IIC Event Management System</strong>. You can log in using the credentials below:</p>
+      <div class="info-box">
+        <div class="info-row"><span class="info-label">Login ID</span><span class="info-value" style="font-family:monospace;font-size:15px;">${user.userId}</span></div>
+        <div class="info-row"><span class="info-label">Temporary Password</span><span class="info-value" style="font-family:monospace;font-size:15px;letter-spacing:1px;">${tempPassword}</span></div>
+        <div class="info-row"><span class="info-label">Role</span><span class="info-value">${user.role ? user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''}</span></div>
+      </div>
+      <p style="margin-top:4px;">Click the button below to log in and <strong>change your password immediately</strong>:</p>
+      <a href="${loginUrl}" class="btn">Log In Now →</a>
+      <div class="note" style="margin-top:20px;">🔒 <strong>Important:</strong> This is a temporary password. You will be required to change it upon your first login. Please keep your credentials confidential and do not share them.</div>
+    `),
+  });
+}
+
 module.exports = {
   sendBookingConfirmation,
   sendBookingApproved,
   sendBookingRejected,
   sendChangesRequested,
+  sendUserCredentials,
 };

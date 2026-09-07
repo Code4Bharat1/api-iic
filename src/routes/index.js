@@ -38,9 +38,12 @@ router.get('/tracker/:ref', tracker.track);
 router.use(authenticate);
 
 router.get('/auth/me', auth.me);
+router.post('/auth/change-password', auth.changePassword);
 
 router.get('/floors', floors.list);
+router.post('/floors', requireRole('master_admin'), floors.create);
 router.put('/floors/:id', requireRole('master_admin'), floors.update);
+router.delete('/floors/:id', requireRole('master_admin'), floors.remove);
 
 router.get('/resources', resources.list);
 router.get('/resources/catalog', resources.catalog);
@@ -48,6 +51,7 @@ router.get('/resources/:id', resources.getById);
 router.post('/resources', requireRole('admin', 'master_admin'), resources.create);
 router.put('/resources/:id', requireRole('admin', 'master_admin'), resources.update);
 router.post('/resources/:id/status', requireRole('admin', 'master_admin'), resources.setActive);
+router.delete('/resources/:id', requireRole('admin', 'master_admin'), resources.remove);
 
 router.get('/availability/check', availability.check);
 router.get('/availability/timeline', availability.timeline);
@@ -79,6 +83,8 @@ router.post('/users', requireRole('master_admin'), users.create);
 router.put('/users/:id', requireRole('master_admin'), users.update);
 router.patch('/users/:id/status', requireRole('master_admin'), users.setStatus);
 router.patch('/users/:id/role', requireRole('master_admin'), users.setRole);
+router.post('/users/:id/resend-credentials', requireRole('master_admin'), users.resendCredentials);
+router.delete('/users/:id', requireRole('master_admin'), users.remove);
 
 router.get('/audit-log', requireRole('admin', 'master_admin'), auditLog.list);
 
